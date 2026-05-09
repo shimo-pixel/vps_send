@@ -140,3 +140,60 @@ docker compose up -d
 
 在 tailnet 打通后，成员之间仍可选用任意内网可达的工具传文件或聊天（例如自行部署 **ssh-chat**、或使用 **croc** 等），与本仓库 Headscale / MinIO 组件独立，按需自行编排即可。
 
+---
+
+## 七、Tailscale 排错与常见误解
+
+### 1. `.env.client` 里该填什么地址
+
+`TS_LOGIN_SERVER` 与 `TS_EXTRA_ARGS` 中的 `--login-server` 必须与 `headscale/config/config.yaml` 的 **`server_url` 一致**，含义是：**本机上的 Tailscale 客户端要去哪里访问 Headscale 控制面**。
+
+- 客户端与 Headscale **不在同一台机器**（例如在 WSL / 家用电脑，Headscale 在 VPS）：应填 **VPS 的公网 IP 或域名**（例如 `http://你的VPS:8080`），**不要**填仅表示本机的 `127.0.0.1`，也**不要**填 Tailscale 虚拟网 IP（`100.x`）。
+- 客户端与 Headscale **同机**（控制面与 `docker-compose-client.yml` 跑在一起）：才可用 `http://127.0.0.1:8080`（与仓库内 `.env.client.example` 一致）。
+
+### 2. 多台机器上出现相同的 Tailscale IP（`100.x`）
+
+同一 tailnet 内，**正常每台节点应有不同的 `100.x` 地址**。若不同物理机却看到相同 IP，常见原因是 **共用了同一份节点身份数据**：本仓库将 `../Tailscale/state` 挂载为 `/var/lib/tailscale`，若从另一台机器 **复制、同步网盘或误用同一份 `Tailscale/state`**，会表现为同一逻辑节点，IP 会相同。换 preauth key 或 `tailscale up --reset` **无法**改变已写入 state 的机器密钥。
+
+处理：在需要独立身份的那台机器上 **停止客户端容器**，**清空该机器仓库内 `Tailscale/state/` 下的内容**（勿使用从其它节点拷来的目录），再在 Headscale 中按需删除旧节点后，用新 preauth key 重新 `docker compose up` 并完成登录。
+
+### 3. `tailscale status` 与「谁能 ping 谁」
+
+- 标记为 **`offline`** 的节点当前不在线，**无法 ping 通**属正常。
+- **`idle`** 且带有收发包统计的节点一般表示在线；若系统 `ping` 仍不通，见下一小节。
+- 当前执行命令的节点可用 `docker exec -it tailscale-node tailscale status --self` 查看。
+- 若 **仅有两台特定机器互相 ping 不通**，但彼此都能 ping 其它节点：优先检查 **Headscale ACL** 是否按标签/分组限制了这两台之间的流量；其次检查 **两台机器上是否对 ICMP 做了不同策略**。
+
+### 4. `tailscale ping` 与系统 `ping`（ICMP）
+
+二者不是同一种探测：
+
+- **`tailscale ping`**：由 Tailscale 在隧道内发起，**不是内核 ICMP**。若对某 `100.x` **能 `tailscale ping` 通**，通常说明 **WireGuard 隧道与路由正常**，ACL 大面上也允许这两台通信。
+- **`ping`（ICMP）**：走系统 ICMP，可能被 **`iptables` / `nftables` / `ufw`、云厂商安全组** 或 **Windows 防火墙**（若从 Windows 侧发 ICMP）丢弃，从而出现 **「`tailscale ping` 正常但 `ping` 不通」**。
+
+`tailscale ping` 输出含义简述：
+
+- **`via 公网IP:端口`、延迟较低**：与对端 **直连 UDP**（打洞成功）。
+- **`via DERP(地区)`、延迟较大**：经 **DERP 中继**，常见于对称 NAT 等导致直连困难的环境；属于路径差异，不一定表示故障。
+
+**验证与修复（ICMP）**：当 **`tailscale ping` 对某节点正常、系统 `ping` 仍不通** 时，到 **对端或本机**（视哪一侧丢弃 ICMP）上临时排查；确认原因后再改为发行版推荐的永久规则（如 `iptables-save` / `nftables` 持久化），勿长期依赖临时插入的规则。
+
+```bash
+# 查看 INPUT 是否丢弃 ICMP（示例，按实际防火墙调整）
+sudo iptables -L INPUT -n -v | head -50
+# 若使用 nftables
+sudo nft list ruleset | head -80
+```
+
+仅用于**验证是否为 ICMP 被拦**：在 Linux 上可临时允许从 Tailscale 网卡入站的 ICMP（网卡名一般为 `tailscale0`，以 `ip link` 为准；重启或规则刷新后可能失效）。
+
+```bash
+sudo iptables -I INPUT 1 -i tailscale0 -p icmp -j ACCEPT
+```
+
+若本机用 **nftables**，请用等价的 `nft` 规则替代上述 `iptables` 命令。从 **WSL 外 Windows 侧** 发起的 `ping` 还需核对 **Windows 防火墙** 是否拦截 ICMP。
+
+### 5. WSL 与 Linux 服务器互通
+
+在 **WSL** 中部署本仓库的 Tailscale 客户端（含 Docker 方式）**可以**与 tailnet 内的 **Linux 服务器** 正常通信；若不通，请在本机核对 **`/dev/net/tun`、容器网络模式、Docker 日志**，并排除 **Windows / WSL 防火墙** 与上文 **ICMP** 被拦的情况。
+
