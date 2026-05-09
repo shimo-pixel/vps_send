@@ -1,6 +1,7 @@
 <div align="center">
   <img src="docs/logo.svg" width="120" height="120" alt="vps_send logo" />
   <h1>vps_send</h1>
+  <p>跨域组网数据加密传输系统</p>
   <p><strong>Headscale</strong> 控制面 · <strong>Docker</strong> 版 Tailscale 客户端 · 私有 <strong>tailnet</strong></p>
   <p>
     <a href="README.md"><img src="https://img.shields.io/badge/README-简体中文-555555?style=flat-square" alt="简体中文" /></a>
