@@ -8,17 +8,19 @@ Tailscale 客户端连接的是你的 Headscale 地址（`--login-server` / `ser
 
 ## 仓库结构
 
-| 路径 | 说明 |
-|------|------|
-| `docker/docker-compose-server.yml` | VPS：仅启动 Headscale，对外 HTTP **8080** |
+
+| 路径                                 | 说明                                                     |
+| ---------------------------------- | ------------------------------------------------------ |
+| `docker/docker-compose-server.yml` | VPS：仅启动 Headscale，对外 HTTP **8080**                     |
 | `docker/docker-compose-client.yml` | Linux 节点：容器名 **tailscale-node**，读 `docker/.env.client` |
-| `docker/docker-compose-chat.yml` | 可选：Centrifugo，映射 **8000** |
-| `docker/config.json` | Centrifugo 配置（上线前替换所有默认密钥与口令） |
-| `docker/.env.client.example` | 客户端环境变量模板 → 复制为 `.env.client` |
-| `headscale/config/config.yaml` | Headscale 主配置；**`server_url` 必须改为你的公网可达地址** |
-| `headscale/data/` | Headscale 运行时数据（勿提交到公开仓库） |
-| `Tailscale/state/` | 各节点 Tailscale 状态目录（由客户端 Compose 挂载） |
-| `minio-flask-api/` | MinIO + Flask API 的 `docker-compose.yml` 与 `app.py` |
+| `docker/docker-compose-chat.yml`   | 可选：Centrifugo，映射 **8000**                              |
+| `docker/config.json`               | Centrifugo 配置（上线前替换所有默认密钥与口令）                          |
+| `docker/.env.client.example`       | 客户端环境变量模板 → 复制为 `.env.client`                          |
+| `headscale/config/config.yaml`     | Headscale 主配置；`**server_url` 必须改为你的公网可达地址**            |
+| `headscale/data/`                  | Headscale 运行时数据（勿提交到公开仓库）                              |
+| `Tailscale/state/`                 | 各节点 Tailscale 状态目录（由客户端 Compose 挂载）                    |
+| `minio-flask-api/`                 | MinIO + Flask API 的 `docker-compose.yml` 与 `app.py`    |
+
 
 ---
 
@@ -73,7 +75,7 @@ docker exec -it tailscale-node tailscale up --login-server http://<你的VPS_IP>
 
 说明：
 
-- **`--reset`**：丢弃该容器内已有节点状态，适合换控制面、换密钥或排错后重来。
+- `**--reset**`：丢弃该容器内已有节点状态，适合换控制面、换密钥或排错后重来。
 - 若未使用预授权密钥或需要交互授权，命令会给出 **URL**，在浏览器中打开并完成 Headscale 侧的注册流程；若已配置有效的 `TS_AUTHKEY` 且容器入口脚本已自动 `up`，仍可用本条命令强制指定 `login-server` 或配合 `--reset` 重建会话。
 
 容器名必须为 **tailscale-node**（与本仓库 `docker-compose-client.yml` 中 `container_name` 一致）。
@@ -97,7 +99,7 @@ cd docker
 docker compose -f docker-compose-chat.yml up -d
 ```
 
-默认 **http://\<主机\>:8000**。务必修改 `docker/config.json` 内的 `hmac_secret_key`、`http_api.key`、`admin.password` 等，并收紧 `allowed_origins` 与匿名发布策略；详见 [Centrifugo 文档](https://centrifugal.dev/)。
+默认 **http://主机:8000**。务必修改 `docker/config.json` 内的 `hmac_secret_key`、`http_api.key`、`admin.password` 等，并收紧 `allowed_origins` 与匿名发布策略；详见 [Centrifugo 文档](https://centrifugal.dev/)。
 
 ---
 
@@ -114,11 +116,13 @@ docker compose up -d
 
 接口摘要（实现见 `minio-flask-api/app.py`）：
 
-| 方法 | 路径 | 说明 |
-|------|------|------|
-| `GET` | `/health` | 健康检查与 MinIO 连通性 |
-| `POST` | `/upload` | `multipart/form-data`，字段 `file`；可选 `object_name` |
-| `GET` | `/objects/<path>` | 下载对象；`?disposition=attachment` 时为附件下载 |
+
+| 方法     | 路径                | 说明                                               |
+| ------ | ----------------- | ------------------------------------------------ |
+| `GET`  | `/health`         | 健康检查与 MinIO 连通性                                  |
+| `POST` | `/upload`         | `multipart/form-data`，字段 `file`；可选 `object_name` |
+| `GET`  | `/objects/<path>` | 下载对象；`?disposition=attachment` 时为附件下载            |
+
 
 生产环境建议在网关启用 HTTPS，并限制 MinIO 控制台与 API 的暴露范围。
 
@@ -135,5 +139,4 @@ docker compose up -d
 ## 六、其它协作方式（非本仓库 Compose）
 
 在 tailnet 打通后，成员之间仍可选用任意内网可达的工具传文件或聊天（例如自行部署 **ssh-chat**、或使用 **croc** 等），与本仓库 Headscale / MinIO 组件独立，按需自行编排即可。
-# transfer
-# vps_send
+

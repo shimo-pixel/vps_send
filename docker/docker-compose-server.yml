@@ -1,0 +1,17 @@
+services:
+
+  headscale:
+    image: docker.io/headscale/headscale:v0.28.0
+    container_name: headscale
+    volumes:
+      - ../headscale/config:/etc/headscale
+      - ../headscale/data:/var/lib/headscale
+    ports:
+      - "8080:8080"
+    command: serve
+    dns:
+      - 1.1.1.1
+      - 8.8.8.8
+    restart: always
+
+

@@ -1,0 +1,18 @@
+services:
+  tailscale:
+    image: tailscale/tailscale:latest
+    container_name: tailscale-node
+    env_file:
+      - .env.client
+    network_mode: "host"
+    environment:
+      TS_USERSPACE: "false"
+    privileged: true
+    volumes:
+      - /dev/net/tun:/dev/net/tun
+      - ../Tailscale/state:/var/lib/tailscale
+    cap_add:
+      - NET_ADMIN
+      - NET_RAW
+      - SYS_MODULE
+    restart: always
