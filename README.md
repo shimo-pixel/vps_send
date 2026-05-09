@@ -1,4 +1,53 @@
-# vps_send
+<div align="center">
+  <img src="docs/logo.svg" width="120" height="120" alt="vps_send logo" />
+  <h1>vps_send</h1>
+  <p><strong>Headscale</strong> 控制面 · <strong>Docker</strong> 版 Tailscale 客户端 · 私有 <strong>tailnet</strong></p>
+  <p>
+    <a href="README.md"><img src="https://img.shields.io/badge/README-简体中文-555555?style=flat-square" alt="简体中文" /></a>
+    <a href="README.en.md"><img src="https://img.shields.io/badge/README-English-555555?style=flat-square" alt="English" /></a>
+  </p>
+  <p>
+    <a href="https://github.com/shimo-pixel/vps_send/stargazers"><img src="https://img.shields.io/github/stars/shimo-pixel/vps_send?style=social" alt="GitHub stars" /></a>
+    &nbsp;
+    <a href="#readme-server"><img src="https://img.shields.io/badge/Get_Started-部署指南-22c55e?style=for-the-badge" alt="Get Started" /></a>
+    &nbsp;
+    <a href="https://github.com/shimo-pixel/vps_send/releases"><img src="https://img.shields.io/github/v/release/shimo-pixel/vps_send?label=Latest%20Release&style=for-the-badge&color=blue" alt="Latest release" /></a>
+    &nbsp;
+    <a href="https://github.com/shimo-pixel/vps_send/blob/main/README.md"><img src="https://img.shields.io/github/license/shimo-pixel/vps_send?style=for-the-badge&label=License" alt="License" /></a>
+  </p>
+  <p>
+    <a href="https://github.com/juanfont/headscale"><b>Headscale</b></a>
+    &nbsp;|&nbsp;
+    <a href="https://tailscale.com/kb/"><b>Tailscale 文档</b></a>
+    &nbsp;|&nbsp;
+    <a href="https://docs.docker.com/compose/"><b>Docker Compose</b></a>
+    &nbsp;|&nbsp;
+    <a href="https://github.com/shimo-pixel/vps_send/issues"><b>Issues</b></a>
+  </p>
+  <br />
+  <img src="docs/hero-banner.svg" width="92%" alt="vps_send banner" />
+</div>
+
+<br />
+
+## 📖 目录
+
+- [💡 项目简介](#readme-intro)
+- [🏗️ 架构一览](#readme-arch)
+- [📦 仓库结构](#readme-layout)
+- [🚀 一、服务端：启动 Headscale](#readme-server)
+- [🔌 二、客户端：把 Tailscale 加入 Headscale](#readme-client)
+- [💬 三、可选：Centrifugo](#readme-centrifugo)
+- [📤 四、MinIO 与 Flask 上传 API](#readme-minio)
+- [🔒 五、安全与运维](#readme-security)
+- [🤝 六、其它协作方式](#readme-collab)
+- [🩹 七、Tailscale 排错与常见误解](#readme-troubleshoot)
+
+---
+
+<a id="readme-intro"></a>
+
+## 💡 项目简介
 
 在 VPS 上自建 **Headscale** 控制面，Linux 节点用 **Docker 版 Tailscale** 注册进该控制面，形成私有 tailnet。仓库内还提供可选的 **Centrifugo** 实时服务，以及 **MinIO + Flask** 的上传与下载 API。
 
@@ -6,7 +55,36 @@ Tailscale 客户端连接的是你的 Headscale 地址（`--login-server` / `ser
 
 ---
 
-## 仓库结构
+<a id="readme-arch"></a>
+
+## 🏗️ 架构一览
+
+```mermaid
+flowchart TB
+  subgraph vps [VPS]
+    HS["Headscale :8080"]
+  end
+  subgraph nodes [各节点 Linux / WSL 等]
+    C1["Docker: tailscale-node"]
+    C2["Docker: tailscale-node"]
+  end
+  C1 -->|"控制面 HTTPS/HTTP"| HS
+  C2 -->|"控制面 HTTPS/HTTP"| HS
+  C1 <-.->|"tailnet 100.x / WireGuard"| C2
+```
+
+| 说明 | 链接 |
+| --- | --- |
+| Headscale 项目 | [github.com/juanfont/headscale](https://github.com/juanfont/headscale) |
+| Tailscale 客户端说明 | [tailscale.com/kb](https://tailscale.com/kb/) |
+| Docker Compose | [docs.docker.com/compose](https://docs.docker.com/compose/) |
+| Centrifugo | [centrifugal.dev](https://centrifugal.dev/) |
+
+---
+
+<a id="readme-layout"></a>
+
+## 📦 仓库结构
 
 
 | 路径                                 | 说明                                                     |
@@ -16,7 +94,7 @@ Tailscale 客户端连接的是你的 Headscale 地址（`--login-server` / `ser
 | `docker/docker-compose-chat.yml`   | 可选：Centrifugo，映射 **8000**                              |
 | `docker/config.json`               | Centrifugo 配置（上线前替换所有默认密钥与口令）                          |
 | `docker/.env.client.example`       | 客户端环境变量模板 → 复制为 `.env.client`                          |
-| `headscale/config/config.yaml`     | Headscale 主配置；`**server_url` 必须改为你的公网可达地址**            |
+| `headscale/config/config.yaml`     | Headscale 主配置；**`server_url` 必须改为你的公网可达地址**            |
 | `headscale/data/`                  | Headscale 运行时数据（勿提交到公开仓库）                              |
 | `Tailscale/state/`                 | 各节点 Tailscale 状态目录（由客户端 Compose 挂载）                    |
 | `minio-flask-api/`                 | MinIO + Flask API 的 `docker-compose.yml` 与 `app.py`    |
@@ -24,7 +102,9 @@ Tailscale 客户端连接的是你的 Headscale 地址（`--login-server` / `ser
 
 ---
 
-## 一、服务端：启动 Headscale
+<a id="readme-server"></a>
+
+## 🚀 一、服务端：启动 Headscale
 
 在**已克隆本仓库的 VPS**上，从仓库根目录执行：
 
@@ -45,7 +125,9 @@ docker exec headscale headscale preauthkeys create --user mynet --reusable --exp
 
 ---
 
-## 二、客户端：把 Tailscale 加入 Headscale
+<a id="readme-client"></a>
+
+## 🔌 二、客户端：把 Tailscale 加入 Headscale
 
 ### 1. 地址保持一致
 
@@ -75,7 +157,7 @@ docker exec -it tailscale-node tailscale up --login-server http://<你的VPS_IP>
 
 说明：
 
-- `**--reset**`：丢弃该容器内已有节点状态，适合换控制面、换密钥或排错后重来。
+- **`--reset`**：丢弃该容器内已有节点状态，适合换控制面、换密钥或排错后重来。
 - 若未使用预授权密钥或需要交互授权，命令会给出 **URL**，在浏览器中打开并完成 Headscale 侧的注册流程；若已配置有效的 `TS_AUTHKEY` 且容器入口脚本已自动 `up`，仍可用本条命令强制指定 `login-server` 或配合 `--reset` 重建会话。
 
 容器名必须为 **tailscale-node**（与本仓库 `docker-compose-client.yml` 中 `container_name` 一致）。
@@ -92,7 +174,9 @@ docker exec headscale headscale nodes list
 
 ---
 
-## 三、可选：Centrifugo
+<a id="readme-centrifugo"></a>
+
+## 💬 三、可选：Centrifugo
 
 ```bash
 cd docker
@@ -103,7 +187,9 @@ docker compose -f docker-compose-chat.yml up -d
 
 ---
 
-## 四、MinIO 与 Flask 上传 API
+<a id="readme-minio"></a>
+
+## 📤 四、MinIO 与 Flask 上传 API
 
 ```bash
 cd minio-flask-api
@@ -128,7 +214,9 @@ docker compose up -d
 
 ---
 
-## 五、安全与运维
+<a id="readme-security"></a>
+
+## 🔒 五、安全与运维
 
 1. **密钥**：`.env.client`、`config.json`、`headscale/data`、MinIO 根账号等均为敏感信息；泄露后应轮换 preauth key 与所有静态口令。
 2. **控制面**：Headscale 的 8080 若对公网开放，建议配合防火墙、TLS 反向代理或 IP 白名单。
@@ -136,13 +224,17 @@ docker compose up -d
 
 ---
 
-## 六、其它协作方式（非本仓库 Compose）
+<a id="readme-collab"></a>
+
+## 🤝 六、其它协作方式（非本仓库 Compose）
 
 在 tailnet 打通后，成员之间仍可选用任意内网可达的工具传文件或聊天（例如自行部署 **ssh-chat**、或使用 **croc** 等），与本仓库 Headscale / MinIO 组件独立，按需自行编排即可。
 
 ---
 
-## 七、Tailscale 排错与常见误解
+<a id="readme-troubleshoot"></a>
+
+## 🩹 七、Tailscale 排错与常见误解
 
 ### 1. `.env.client` 里该填什么地址
 
@@ -196,4 +288,3 @@ sudo iptables -I INPUT 1 -i tailscale0 -p icmp -j ACCEPT
 ### 5. WSL 与 Linux 服务器互通
 
 在 **WSL** 中部署本仓库的 Tailscale 客户端（含 Docker 方式）**可以**与 tailnet 内的 **Linux 服务器** 正常通信；若不通，请在本机核对 **`/dev/net/tun`、容器网络模式、Docker 日志**，并排除 **Windows / WSL 防火墙** 与上文 **ICMP** 被拦的情况。
-
